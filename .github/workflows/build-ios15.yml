@@ -143,7 +143,20 @@ jobs:
             --manifest-path rust/Cargo.toml --target "$SIM_TARGET" --crate-type staticlib \
             2>&1 | tee artifacts/rust-ios-simulator.log
           cp "rust/target/$SIM_TARGET/release/libfqapi_core.a" ios/Frameworks/libfqapi_core.a
-          flutter build ios --simulator --debug --no-pub \
+          xcrun lipo -info ios/Frameworks/libfqapi_core.a \
+            2>&1 | tee artifacts/rust-ios-simulator-architecture.log
+          xcrun nm -gU ios/Frameworks/libfqapi_core.a \
+            > artifacts/rust-ios-simulator-symbols.log
+          for symbol in fq_desktop_media_open fq_desktop_media_close fq_desktop_media_free; do
+            if ! grep -Eq "[[:space:]]_?${symbol}$" artifacts/rust-ios-simulator-symbols.log; then
+              echo "Rust simulator archive is missing exported symbol: $symbol" >&2
+              exit 1
+            fi
+          done
+          xcodebuild -showBuildSettings -workspace ios/Runner.xcworkspace -scheme Runner \
+            -configuration Debug -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO \
+            > artifacts/ios-simulator-build-settings.log
+          flutter build ios --simulator --debug --no-pub --verbose \
             2>&1 | tee artifacts/flutter-ios-simulator.log
           xcrun simctl list devices available -j > artifacts/simulators.json
           SIM_ID="$(python3 - <<'PY'

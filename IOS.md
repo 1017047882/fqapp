@@ -86,6 +86,10 @@ BUNDLE_ID=com.fqapp.fqapp IPA="$PACK_DIR/fqapp_ios_unsigned.ipa" ./your-sign-scr
      - `DEAD_CODE_STRIPPING = NO`，否则「只在运行时 dlsym」的符号会被 dead_strip 删掉；
      - `-Wl,-export_dynamic`，主可执行文件默认不导出全局符号，dlsym 会找不到 Rust 入口；
    - `lib/services/rust_bootstrap_io.dart` 在 iOS 上改用 `ExternalLibrary.process()`（接缝在 `lib/services/backend_transport.dart` 的 `runtimeInitializer`）。
+   - Runner 的 Debug 设置 `ENABLE_DEBUG_DYLIB = NO`，使调试构建也保持主二进制链接布局，
+     不将应用代码拆入 `Runner.debug.dylib`。模拟器 CI 在 Flutter 构建前检查静态库的
+     三个 `fq_desktop_media_*` 导出，并保存有效构建设置和详细链接日志；
+     该 Debug 调整仍需 Actions 重跑确认，不能仅凭静态设置认定链接错误已消除。
 2. **桌面专用依赖**（`webview_windows` / `smtc_windows` / `window_manager` / `screen_retriever`）不需要条件导入：它们都能在 iOS 上编译，运行时只在 `isWindowsDesktop` 分支调用。
 3. **读书和听书原生桥**：AppDelegate 注册 `FQReaderPlugin`、`FQAudioPlayerPlugin` 和
    `FQSystemTtsPlugin`，使用现有 Flutter 方法/事件通道。视频能力判断仍为 false。
