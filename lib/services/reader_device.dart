@@ -102,7 +102,10 @@ class ReaderDevice {
   /// even if the Dart side never calls this again.
   Future<void> keepScreenOn(bool on) async {
     try {
-      await _channel.invokeMethod<void>('keepScreenOn', {'on': on});
+      await _channel.invokeMethod<void>('keepScreenOn', {
+        'on': on,
+        'session': _session,
+      });
     } on MissingPluginException {
       // No Android bridge (desktop): nothing to hold awake.
     } on PlatformException {

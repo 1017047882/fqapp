@@ -21,6 +21,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -96,7 +97,8 @@ class SettingsPage extends StatelessWidget {
         subtitle: '后台播放、通知栏控制与系统朗读',
         items: [
           _backgroundAudioItem(),
-          if (!isWindowsDesktop) _audioRateEngineItem(),
+          if (defaultTargetPlatform == TargetPlatform.android)
+            _audioRateEngineItem(),
           SettingsItem(
             icon: CupertinoIcons.mic,
             title: '系统朗读',

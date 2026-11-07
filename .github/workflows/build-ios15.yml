@@ -1,0 +1,199 @@
+name: iOS 15 unsigned IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios15-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.9'
+  RUST_VERSION: '1.99.1'
+  XCODE_VERSION: '27.2'
+  IPHONEOS_DEPLOYMENT_TARGET: '15.0'
+  CARGO_BUILD_JOBS: '3'
+
+jobs:
+  media-core-tests:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - name: Test shared media Range and MIME contracts
+        run: cargo test --locked --manifest-path rust/Cargo.toml desktop_media::tests
+
+  package-iphone:
+    needs: media-core-tests
+    runs-on: macos-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Select and record Apple toolchain
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          XCODE_APP="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "$XCODE_APP" ]; then
+            echo "Required Xcode $XCODE_VERSION is unavailable on this runner." >&2
+            ls -d /Applications/Xcode*.app >&2
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          {
+            git rev-parse HEAD
+            uname -m
+            xcodebuild -version
+            xcrun --sdk iphoneos --show-sdk-version
+          } 2>&1 | tee artifacts/toolchain.txt
+
+      - name: Test compatibility checker
+        run: python3 -m unittest discover -s scripts -p test_verify_ios15_app.py -v
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-apple-ios
+
+      - name: Install Flutter SDK
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Prepare CocoaPods and locked Flutter dependencies
+        run: |
+          set -euo pipefail
+          if ! command -v pod >/dev/null 2>&1; then
+            brew install cocoapods
+          fi
+          flutter config --no-enable-swift-package-manager
+          {
+            flutter --version
+            rustc --version
+            cargo --version
+            pod --version
+          } 2>&1 | tee artifacts/dependencies.txt
+          flutter pub get --enforce-lockfile 2>&1 | tee artifacts/pub-get.log
+
+      - name: Build arm64 Rust static library for iOS 15
+        run: |
+          set -euo pipefail
+          bash scripts/build_rust_ios.sh 2>&1 | tee artifacts/rust-ios.log
+
+      - name: Test reading and listening Dart contracts
+        run: |
+          set -euo pipefail
+          flutter test --no-pub test/reader_device_test.dart test/native_player_test.dart \
+            test/system_tts_test.dart test/library_backup_test.dart \
+            test/imported_book_store_test.dart test/book_txt_export_test.dart \
+            2>&1 | tee artifacts/reading-listening-dart-tests.log
+
+      - name: Build unsigned Flutter release
+        run: |
+          set -euo pipefail
+          flutter build ios --release --no-codesign --no-pub \
+            2>&1 | tee artifacts/flutter-ios.log
+
+      # Check the completed bundle, including Flutter engine and plugin binaries.
+      # Do not lower dependency deployment settings to conceal incompatibility.
+      - name: Verify all embedded Mach-O deployment requirements
+        run: |
+          set -euo pipefail
+          python3 scripts/verify_ios15_app.py build/ios/iphoneos/Runner.app \
+            | tee artifacts/ios15-binaries.json
+
+      - name: Package unsigned IPA and checksum
+        run: |
+          set -euo pipefail
+          PACKAGE_DIR="$PWD/build/ios15-ipa"
+          mkdir -p "$PACKAGE_DIR/Payload"
+          ditto build/ios/iphoneos/Runner.app "$PACKAGE_DIR/Payload/Runner.app"
+          cd "$PACKAGE_DIR"
+          zip -qry fqapp-iOS15-unsigned.ipa Payload
+          shasum -a 256 fqapp-iOS15-unsigned.ipa > fqapp-iOS15-unsigned.ipa.sha256
+
+      - name: Run native reading and listening XCTest on an available iPhone simulator
+        run: |
+          set -euo pipefail
+          if [ "$(uname -m)" = arm64 ]; then
+            SIM_TARGET=aarch64-apple-ios-sim
+          else
+            SIM_TARGET=x86_64-apple-ios
+          fi
+          rustup target add "$SIM_TARGET"
+          CARGO_PROFILE_RELEASE_STRIP=debuginfo cargo rustc --locked --release \
+            --manifest-path rust/Cargo.toml --target "$SIM_TARGET" --crate-type staticlib \
+            2>&1 | tee artifacts/rust-ios-simulator.log
+          cp "rust/target/$SIM_TARGET/release/libfqapi_core.a" ios/Frameworks/libfqapi_core.a
+          flutter build ios --simulator --debug --no-pub \
+            2>&1 | tee artifacts/flutter-ios-simulator.log
+          xcrun simctl list devices available -j > artifacts/simulators.json
+          SIM_ID="$(python3 - <<'PY'
+          import json
+          import pathlib
+          devices = json.loads(pathlib.Path('artifacts/simulators.json').read_text())['devices']
+          for runtime, items in devices.items():
+              if '.iOS-' in runtime:
+                  for device in items:
+                      if device.get('isAvailable') and device['name'].startswith('iPhone'):
+                          print(device['udid'])
+                          raise SystemExit(0)
+          raise SystemExit('No available iPhone simulator; native tests cannot be skipped')
+          PY
+          )"
+          xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner \
+            -configuration Debug -destination "platform=iOS Simulator,id=$SIM_ID" \
+            -resultBundlePath artifacts/reading-listening.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/reading-listening-xctest.log
+
+      - name: Upload unsigned IPA and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fqapp-iOS15-unsigned-${{ github.run_number }}
+          path: |
+            build/ios15-ipa/fqapp-iOS15-unsigned.ipa
+            build/ios15-ipa/fqapp-iOS15-unsigned.ipa.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Summarize build
+        if: always()
+        env:
+          BUILD_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo '# fqapp iOS 15 IPA'
+            echo "Result: $BUILD_STATUS"
+            echo 'Target: iOS 15.0+, arm64 device.'
+            echo 'The IPA is unsigned and requires signing before installation.'
+            echo 'Binary deployment checks do not replace iOS 15 device testing.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload build and compatibility logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fqapp-ios15-logs-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14

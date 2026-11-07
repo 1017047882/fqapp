@@ -17,6 +17,13 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		E73D436F0730087DB56FE5F9 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DDCD6EAF2BDA2776A2347FA2 /* Pods_RunnerTests.framework */; };
+		D632EA5812E055D4FAEDFD0B /* FQAudioSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAF23C113403C4793526137 /* FQAudioSession.swift */; };
+		4108D0EF7CF92DFE9AA94430 /* FQAudioPlayerPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47434BEF76474457CE2C4809 /* FQAudioPlayerPlugin.swift */; };
+		76646B12F972C73ECBA2CE2A /* FQSystemTtsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D75C35A65BE15CE33BFBB8B0 /* FQSystemTtsPlugin.swift */; };
+		F83D8B8E098E9B4737F7AE90 /* FQReaderPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2494BA6DBF0D8F17F4BDFB38 /* FQReaderPlugin.swift */; };
+		3C443E2E93A922259DEABD63 /* FQAudioPlayerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFA0F03AB5D5E626F81BDE43 /* FQAudioPlayerTests.swift */; };
+		E0EAF19816FD1DF6D3A14B92 /* FQSystemTtsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE280E662921CEE780AB3307 /* FQSystemTtsTests.swift */; };
+		DE1EDE8886065823AFAE8066 /* FQReaderPluginTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8A5B4AD0A853792957C4129 /* FQReaderPluginTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +74,13 @@
 		DDCD6EAF2BDA2776A2347FA2 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC2F583E86F2B604C4A7E567 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		FB5DF92337463383CD2BD841 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
+		2EAF23C113403C4793526137 /* FQAudioSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FQAudioSession.swift; sourceTree = "<group>"; };
+		47434BEF76474457CE2C4809 /* FQAudioPlayerPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FQAudioPlayerPlugin.swift; sourceTree = "<group>"; };
+		D75C35A65BE15CE33BFBB8B0 /* FQSystemTtsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FQSystemTtsPlugin.swift; sourceTree = "<group>"; };
+		2494BA6DBF0D8F17F4BDFB38 /* FQReaderPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FQReaderPlugin.swift; sourceTree = "<group>"; };
+		CFA0F03AB5D5E626F81BDE43 /* FQAudioPlayerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FQAudioPlayerTests.swift; sourceTree = "<group>"; };
+		FE280E662921CEE780AB3307 /* FQSystemTtsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FQSystemTtsTests.swift; sourceTree = "<group>"; };
+		A8A5B4AD0A853792957C4129 /* FQReaderPluginTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FQReaderPluginTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -102,6 +116,9 @@
 			isa = PBXGroup;
 			children = (
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
+				A8A5B4AD0A853792957C4129 /* FQReaderPluginTests.swift */,
+				FE280E662921CEE780AB3307 /* FQSystemTtsTests.swift */,
+				CFA0F03AB5D5E626F81BDE43 /* FQAudioPlayerTests.swift */,
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
@@ -162,6 +179,10 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				2494BA6DBF0D8F17F4BDFB38 /* FQReaderPlugin.swift */,
+				D75C35A65BE15CE33BFBB8B0 /* FQSystemTtsPlugin.swift */,
+				47434BEF76474457CE2C4809 /* FQAudioPlayerPlugin.swift */,
+				2EAF23C113403C4793526137 /* FQAudioSession.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
@@ -373,6 +394,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */,
+				DE1EDE8886065823AFAE8066 /* FQReaderPluginTests.swift in Sources */,
+				E0EAF19816FD1DF6D3A14B92 /* FQSystemTtsTests.swift in Sources */,
+				3C443E2E93A922259DEABD63 /* FQAudioPlayerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -381,6 +405,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				F83D8B8E098E9B4737F7AE90 /* FQReaderPlugin.swift in Sources */,
+				76646B12F972C73ECBA2CE2A /* FQSystemTtsPlugin.swift in Sources */,
+				4108D0EF7CF92DFE9AA94430 /* FQAudioPlayerPlugin.swift in Sources */,
+				D632EA5812E055D4FAEDFD0B /* FQAudioSession.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 			);

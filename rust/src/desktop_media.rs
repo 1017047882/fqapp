@@ -1,5 +1,10 @@
 // The desktop player receives clear bytes over a per-player loopback capability.
 // Keys and original URLs stay inside the process; no decrypted movie is written.
+/**
+ * @brief iOS 与 Windows 共用内存 CENC 解密及回环服务，不记录密钥或源 URL。
+ * @note 每个 reader 的访问与释放由会话互斥锁串行化；关闭通过原子变量取消。
+ *       FFI open 会阻塞网络读取，不应在 UI 线程或中断上下文调用。
+ */
 use crate::desktop_fetch::{
     fetch_known_range, fetch_range, shared_client, with_retries, FetchError, OpenError,
     CHUNK_TIMEOUT, PROBE_TIMEOUT,
@@ -219,6 +224,7 @@ struct Session {
     size: u64,
     authority: String,
     path: String,
+    content_type: &'static str,
     sockets: Mutex<SocketRegistry>,
 }
 
@@ -384,7 +390,7 @@ fn serve(mut socket: TcpStream, session: Arc<Session>) -> std::io::Result<()> {
     } else {
         "200 OK"
     };
-    write!(socket, "HTTP/1.1 {status}\r\nContent-Type: application/octet-stream\r\nAccept-Ranges: bytes\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n", end - position + 1)?;
+    write!(socket, "HTTP/1.1 {status}\r\nContent-Type: {}\r\nAccept-Ranges: bytes\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n", session.content_type, end - position + 1)?;
     if partial {
         write!(
             socket,
@@ -424,7 +430,36 @@ struct OpenRequest {
     #[serde(default)]
     key: String,
 }
+
+/// @brief CENC 仅支持 MP4；明文使用 URL 路径判断类型，未知格式交给播放器探测。
+#[cfg(any(target_os = "ios", test))]
+fn ios_content_type(source: &str, encrypted: bool) -> &'static str {
+    if encrypted {
+        return "audio/mp4";
+    }
+    let parsed = url::Url::parse(source).ok();
+    let path = parsed.as_ref().map_or(source, |url| url.path());
+    match path
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "m4a" | "mp4" => "audio/mp4",
+        "mp3" => "audio/mpeg",
+        "aac" => "audio/aac",
+        "wav" => "audio/wav",
+        "flac" => "audio/flac",
+        _ => "application/octet-stream",
+    }
+}
+
 fn open(request: OpenRequest) -> Result<serde_json::Value, OpenError> {
+    #[cfg(target_os = "ios")]
+    let content_type = ios_content_type(&request.url, !request.key.is_empty());
+    #[cfg(not(target_os = "ios"))]
+    let content_type = "application/octet-stream";
     let source = Box::new(Source::open(request.url)?);
     let cancelled = source.client.map(|_| source.cancelled.clone());
     let last_error = source.last_error.clone();
@@ -480,6 +515,7 @@ fn open(request: OpenRequest) -> Result<serde_json::Value, OpenError> {
         cancelled,
         authority,
         path,
+        content_type,
         sockets: Mutex::default(),
     });
     sessions()
@@ -570,6 +606,78 @@ pub unsafe extern "C" fn fq_desktop_media_free(value: *mut c_char) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ios_mime_keeps_clear_audio_formats_and_identifies_cenc_mp4() {
+        for (source, encrypted, expected) in [
+            ("https://cdn.invalid/opaque?token=x", true, "audio/mp4"),
+            ("https://cdn.invalid/episode.MP3?token=x", false, "audio/mpeg"),
+            ("file:///var/mobile/episode.m4a", false, "audio/mp4"),
+            ("/var/mobile/episode.aac", false, "audio/aac"),
+            (
+                "https://cdn.invalid/opaque?name=episode.mp3",
+                false,
+                "application/octet-stream",
+            ),
+        ] {
+            assert_eq!(ios_content_type(source, encrypted), expected);
+        }
+    }
+
+    #[test]
+    fn avplayer_probe_and_seek_use_the_same_capability() {
+        let path = std::env::temp_dir().join(format!(
+            "fq-media-test-{}",
+            hex::encode(rand::random::<[u8; 16]>())
+        ));
+        std::fs::write(&path, b"0123456789").unwrap();
+        let source = Source::open(path.to_str().unwrap().to_owned()).unwrap();
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let authority = listener.local_addr().unwrap().to_string();
+        let session = Arc::new(Session {
+            reader: Mutex::new(Reader::Clear(Box::new(source))),
+            stop: AtomicBool::new(false),
+            cancelled: None,
+            size: 10,
+            authority: authority.clone(),
+            path: "/media/test".into(),
+            content_type: "audio/mp4",
+            sockets: Mutex::default(),
+        });
+        let worker = thread::spawn(move || {
+            for _ in 0..3 {
+                let (socket, _) = listener.accept().unwrap();
+                serve(socket, session.clone()).unwrap();
+            }
+        });
+        for (method, range, expected_status, expected_body) in [
+            ("HEAD", "bytes=0-1", "206 Partial Content", ""),
+            ("GET", "bytes=4-", "206 Partial Content", "456789"),
+            ("GET", "bytes=10-", "416 Range Not Satisfiable", ""),
+        ] {
+            let mut socket = TcpStream::connect(&authority).unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            write!(socket, "{method} /media/test HTTP/1.1\r\nHost: {authority}\r\nRange: {range}\r\n\r\n").unwrap();
+            let mut response = String::new();
+            socket.read_to_string(&mut response).unwrap();
+            let (headers, body) = response.split_once("\r\n\r\n").unwrap();
+            assert!(headers.starts_with(&format!("HTTP/1.1 {expected_status}")));
+            assert_eq!(body, expected_body);
+            if expected_status.starts_with("206") {
+                assert!(headers.contains("Content-Type: audio/mp4"));
+                assert!(headers.contains("Accept-Ranges: bytes"));
+                assert!(headers.contains(if method == "HEAD" {
+                    "Content-Range: bytes 0-1/10"
+                } else {
+                    "Content-Range: bytes 4-9/10"
+                }));
+            }
+        }
+        worker.join().unwrap();
+        std::fs::remove_file(path).unwrap();
+    }
+
     #[test]
     fn range_contract() {
         assert_eq!(parse_range(None, 100), Ok((0, 99, false)));

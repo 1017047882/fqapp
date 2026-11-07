@@ -1,0 +1,144 @@
+name: TVBox-iPhone
+options:
+  bundleIdPrefix: com.tvbox
+  developmentLanguage: en
+  knownRegions:
+  - en
+  - zh-Hans
+  - zh-Hant
+  - ja
+  deploymentTarget:
+    iOS: '15.0'
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    MARKETING_VERSION: 1.8.8
+    CURRENT_PROJECT_VERSION: '46'
+    GENERATE_INFOPLIST_FILE: true
+    INFOPLIST_KEY_CFBundleDisplayName: Yingxia
+    INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.entertainment
+    ENABLE_USER_SCRIPT_SANDBOXING: false
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ''
+    ICLOUD_ENTITLEMENTS: ''
+packages:
+  Perception:
+    url: https://github.com/pointfreeco/swift-perception
+    exactVersion: 1.6.0
+  NavigationBackport:
+    url: https://github.com/johnpatrickmorgan/NavigationBackport
+    exactVersion: 0.9.0
+  TVCore:
+    path: Packages/TVCore
+targetTemplates:
+  SharedApp:
+    type: application
+    sources:
+    - path: App
+    - path: website/public/releases.json
+      buildPhase: resources
+    dependencies:
+    - package: TVCore
+    - package: Perception
+    - package: NavigationBackport
+    info:
+      path: Config/Info-${target_name}.plist
+      properties:
+        CFBundleDisplayName: Yingxia
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations:
+        - en
+        - zh-Hans
+        - zh-Hant
+        - ja
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        NSLocalNetworkUsageDescription: Connect to the local media and subscription
+          services you configure, and find Yingxia on your other devices.
+        NSBonjourServices:
+        - _yingxia._tcp
+        UILaunchScreen: {}
+        UIBackgroundModes:
+        - audio
+targets:
+  TVBox-iOS:
+    templates:
+    - SharedApp
+    preBuildScripts:
+    - name: Embed Dandanplay API configuration
+      script: '"$SRCROOT/Scripts/embed-dandanplay-config.py"'
+      basedOnDependencyAnalysis: false
+    platform: iOS
+    sources:
+    - path: Runtime/AppleRuntime/Native/AppleRuntime.m
+    - path: Runtime/AppleRuntime/Native/ApplePython.c
+    - path: Config/iOS/Assets.xcassets
+    - path: Config/iOS/PrivacyInfo.xcprivacy
+      buildPhase: resources
+    postBuildScripts:
+    - name: Embed on-device Java runtime
+      script: 'set -eu
+
+        RUNTIME="$SRCROOT/build/AppleRuntime/$PLATFORM_NAME"
+
+        test -f "$RUNTIME/lib/libTVAppleRuntime.a"
+
+        "$SRCROOT/Scripts/check-java-host.sh" "$RUNTIME/Resources/JavaHost/host.jar"
+
+        rsync -a "$RUNTIME/Resources/lib/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/lib/"
+
+        rsync -a "$RUNTIME/Resources/JavaHost/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/JavaHost/"
+
+        '
+      basedOnDependencyAnalysis: false
+    - name: Embed on-device Python runtime
+      script: '"$SRCROOT/Scripts/embed-apple-python.sh"'
+      basedOnDependencyAnalysis: false
+    - name: Embed on-device Node runtime
+      script: '"$SRCROOT/Scripts/embed-node-mobile.sh"'
+      basedOnDependencyAnalysis: false
+    settings:
+      HEADER_SEARCH_PATHS: $(inherited) $(SRCROOT)/build/AppleRuntime/$(PLATFORM_NAME)/include
+      OTHER_LDFLAGS: $(inherited) -Wl,-force_load,$(SRCROOT)/build/AppleRuntime/$(PLATFORM_NAME)/lib/libTVAppleRuntime.a
+        -Wl,-export_dynamic -lc++ -lz -liconv -framework Security -framework CoreGraphics
+      ENABLE_USER_SCRIPT_SANDBOXING: false
+      ENABLE_DEBUG_DYLIB: false
+      STRIP_STYLE: non-global
+      ARCHS: arm64
+      PRODUCT_BUNDLE_IDENTIFIER: com.jo32.yingxia.ios
+      CODE_SIGN_ENTITLEMENTS: $(ICLOUD_ENTITLEMENTS)
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      TARGETED_DEVICE_FAMILY: '1'
+      SUPPORTED_PLATFORMS: iphoneos
+      SUPPORTS_MACCATALYST: 'NO'
+      SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: 'NO'
+    info:
+      properties:
+        ITSAppUsesNonExemptEncryption: false
+        CADisableMinimumFrameDurationOnPhone: true
+        UISupportedInterfaceOrientations:
+        - UIInterfaceOrientationPortrait
+        - UIInterfaceOrientationLandscapeLeft
+        - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+        - UIInterfaceOrientationPortrait
+        - UIInterfaceOrientationPortraitUpsideDown
+        - UIInterfaceOrientationLandscapeLeft
+        - UIInterfaceOrientationLandscapeRight
+        NSPhotoLibraryAddUsageDescription: Saves a sign-in code to Photos, so the
+          app on this phone can scan it.
+        BGTaskSchedulerPermittedIdentifiers:
+        - $(PRODUCT_BUNDLE_IDENTIFIER).downloads.*
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleExternalDisplay:
+            - UISceneConfigurationName: External Display
+              UISceneDelegateClassName: ExternalDisplaySceneDelegate
+            UIWindowSceneSessionRoleExternalDisplayNonInteractive:
+            - UISceneConfigurationName: External Display
+              UISceneDelegateClassName: ExternalDisplaySceneDelegate
+        CFBundleURLTypes:
+        - CFBundleURLName: com.tvbox.yingxia.handoff
+          CFBundleURLSchemes:
+          - yingxia

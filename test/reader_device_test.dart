@@ -11,6 +11,23 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
+  test('screen awake commands identify the reader session', () async {
+    final calls = <MethodCall>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
+      return null;
+    });
+    final first = ReaderDevice();
+    final second = ReaderDevice();
+    await first.keepScreenOn(true);
+    await second.keepScreenOn(true);
+    await first.keepScreenOn(false);
+    expect(calls.map((call) => call.method), everyElement('keepScreenOn'));
+    expect(calls[0].arguments['session'], calls[2].arguments['session']);
+    expect(calls[0].arguments['session'], isNot(calls[1].arguments['session']));
+    expect(calls[2].arguments['on'], isFalse);
+  });
+
   test(
     'reader brightness commands use one session and close prevents reuse',
     () async {

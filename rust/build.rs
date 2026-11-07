@@ -1,5 +1,6 @@
 fn main() {
-    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if target_os != "windows" && target_os != "ios" {
         return;
     }
     let sources = [
@@ -13,10 +14,12 @@ fn main() {
     build
         .include("../native/crypto_core")
         .std("c11")
-        .flag_if_supported("/experimental:c11atomics")
         .define("CBC", "0")
         .define("CTR", "0")
         .define("ECB", "1");
+    if target_os == "windows" {
+        build.flag_if_supported("/experimental:c11atomics");
+    }
     for source in sources {
         let path = format!("../native/{source}");
         println!("cargo:rerun-if-changed={path}");

@@ -12,5 +12,14 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "FQAudioPlayerPlugin") {
+      FQAudioPlayerPlugin.register(with: registrar)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "FQSystemTtsPlugin") {
+      FQSystemTtsPlugin.register(with: registrar)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "FQReaderPlugin") {
+      FQReaderPlugin.register(with: registrar)
+    }
   }
 }
