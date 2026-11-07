@@ -8,9 +8,9 @@
 
 | 组件 | 版本 | 备注 |
 |---|---|---|
-| macOS | 27.2+ | |
-| Xcode | 27.2 | `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` |
-| Flutter | **3.47.9** | Xcode 27 的适配补丁在 3.47.0 才进，别用 3.44.x 建 iOS |
+| macOS | runner 提供的版本 | 需支持所选 Xcode |
+| Xcode | 26.6 | `sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer` |
+| Flutter | **3.47.9** | 与当前项目及依赖锁文件保持一致 |
 | CocoaPods | 1.17.0 | `brew install cocoapods`（系统 Ruby 太旧，别用 gem 装） |
 | Rust | 1.99.1 | `rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios` |
 | flutter_rust_bridge_codegen | 2.13.0 | 必须与 `rust/Cargo.toml` 里的版本一致 |
@@ -25,8 +25,9 @@
 同时运行共用媒体服务的 Rust 回归、阅读/听书 Dart 回归，以及可用 iPhone 模拟器的
 原生 XCTest。模拟器的系统版本由 runner 提供，不代表已经在 iOS 15 真机验证。
 
-- 使用当前项目锁定的 Flutter 3.47.9、Rust 1.99.1 和 Xcode 27.2；runner 必须提供
-  `/Applications/Xcode_27.2.app`，缺失时明确失败，需调整 runner 到提供该版本的环境。
+- 使用当前项目锁定的 Flutter 3.47.9、Rust 1.99.1 和 Xcode 26.6；runner 必须提供
+  `/Applications/Xcode_26.6.app`。该版本来自实际运行日志中的可用工具链列表；
+  完整构建结果仍以 Actions 为准，缺失时明确失败。
 - 使用现有 Flutter Runner 工程与 Rust 静态库，不使用 Swift 参考项目的
   `.ios15-project.generated.yml`（该文件是 XcodeGen 配置，并非 Actions 工作流）。
 - 成功后下载 `fqapp-iOS15-unsigned-<运行编号>`，包含 IPA 与 SHA-256 校验文件；
