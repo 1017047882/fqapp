@@ -134,29 +134,33 @@ jobs:
       - name: Run native reading and listening XCTest on an available iPhone simulator
         run: |
           set -euo pipefail
-          if [ "$(uname -m)" = arm64 ]; then
-            SIM_TARGET=aarch64-apple-ios-sim
-          else
-            SIM_TARGET=x86_64-apple-ios
-          fi
-          rustup target add "$SIM_TARGET"
-          CARGO_PROFILE_RELEASE_STRIP=debuginfo cargo rustc --locked --release \
-            --manifest-path rust/Cargo.toml --target "$SIM_TARGET" --crate-type staticlib \
-            2>&1 | tee artifacts/rust-ios-simulator.log
-          cp "rust/target/$SIM_TARGET/release/libfqapi_core.a" ios/Frameworks/libfqapi_core.a
+          # Flutter's generic simulator build can link both architectures.
+          rustup target add aarch64-apple-ios-sim x86_64-apple-ios
+          for SIM_TARGET in aarch64-apple-ios-sim x86_64-apple-ios; do
+            CARGO_PROFILE_RELEASE_STRIP=debuginfo cargo rustc --locked --release \
+              --manifest-path rust/Cargo.toml --target "$SIM_TARGET" --crate-type staticlib \
+              2>&1 | tee "artifacts/rust-ios-simulator-$SIM_TARGET.log"
+          done
+          xcrun lipo -create \
+            rust/target/aarch64-apple-ios-sim/release/libfqapi_core.a \
+            rust/target/x86_64-apple-ios/release/libfqapi_core.a \
+            -output ios/Frameworks/libfqapi_core.a
+          xcrun lipo -verify_arch arm64 x86_64 ios/Frameworks/libfqapi_core.a
           xcrun lipo -info ios/Frameworks/libfqapi_core.a \
             2>&1 | tee artifacts/rust-ios-simulator-architecture.log
           # Rust archives may contain LLVM bitcode newer than Apple's nm can read.
           RUST_HOST="$(rustc -vV | sed -n 's/^host: //p')"
           LLVM_NM="$(rustc --print sysroot)/lib/rustlib/$RUST_HOST/bin/llvm-nm"
           "$LLVM_NM" --version > artifacts/rust-llvm-nm-version.log
-          "$LLVM_NM" --extern-only --defined-only ios/Frameworks/libfqapi_core.a \
-            > artifacts/rust-ios-simulator-symbols.log
-          for symbol in fq_desktop_media_open fq_desktop_media_close fq_desktop_media_free; do
-            if ! grep -Eq "[[:space:]]_?${symbol}$" artifacts/rust-ios-simulator-symbols.log; then
-              echo "Rust simulator archive is missing exported symbol: $symbol" >&2
-              exit 1
-            fi
+          for SIM_ARCH in arm64 x86_64; do
+            "$LLVM_NM" --arch="$SIM_ARCH" --extern-only --defined-only ios/Frameworks/libfqapi_core.a \
+              > "artifacts/rust-ios-simulator-symbols-$SIM_ARCH.log"
+            for symbol in fq_desktop_media_open fq_desktop_media_close fq_desktop_media_free; do
+              if ! grep -Eq "[[:space:]]_?${symbol}$" "artifacts/rust-ios-simulator-symbols-$SIM_ARCH.log"; then
+                echo "Rust simulator archive ($SIM_ARCH) is missing exported symbol: $symbol" >&2
+                exit 1
+              fi
+            done
           done
           xcodebuild -showBuildSettings -workspace ios/Runner.xcworkspace -scheme Runner \
             -configuration Debug -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO \
