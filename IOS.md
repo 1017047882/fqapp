@@ -89,6 +89,8 @@ BUNDLE_ID=com.fqapp.fqapp IPA="$PACK_DIR/fqapp_ios_unsigned.ipa" ./your-sign-scr
    - Runner 的 Debug 设置 `ENABLE_DEBUG_DYLIB = NO`，使调试构建也保持主二进制链接布局，
      不将应用代码拆入 `Runner.debug.dylib`。模拟器 CI 在 Flutter 构建前检查静态库的
      三个 `fq_desktop_media_*` 导出，并保存有效构建设置和详细链接日志；
+     符号检查使用同一 Rust 工具链的 `llvm-tools-preview` 中的 `llvm-nm`，
+     避免 Apple `nm` 无法解析较新 Rust LLVM 位码而中断检查。
      该 Debug 调整仍需 Actions 重跑确认，不能仅凭静态设置认定链接错误已消除。
 2. **桌面专用依赖**（`webview_windows` / `smtc_windows` / `window_manager` / `screen_retriever`）不需要条件导入：它们都能在 iOS 上编译，运行时只在 `isWindowsDesktop` 分支调用。
 3. **读书和听书原生桥**：AppDelegate 注册 `FQReaderPlugin`、`FQAudioPlayerPlugin` 和

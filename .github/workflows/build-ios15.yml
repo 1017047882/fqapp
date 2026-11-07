@@ -70,6 +70,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
           targets: aarch64-apple-ios
+          components: llvm-tools-preview
 
       - name: Install Flutter SDK
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
@@ -145,7 +146,11 @@ jobs:
           cp "rust/target/$SIM_TARGET/release/libfqapi_core.a" ios/Frameworks/libfqapi_core.a
           xcrun lipo -info ios/Frameworks/libfqapi_core.a \
             2>&1 | tee artifacts/rust-ios-simulator-architecture.log
-          xcrun nm -gU ios/Frameworks/libfqapi_core.a \
+          # Rust archives may contain LLVM bitcode newer than Apple's nm can read.
+          RUST_HOST="$(rustc -vV | sed -n 's/^host: //p')"
+          LLVM_NM="$(rustc --print sysroot)/lib/rustlib/$RUST_HOST/bin/llvm-nm"
+          "$LLVM_NM" --version > artifacts/rust-llvm-nm-version.log
+          "$LLVM_NM" --extern-only --defined-only ios/Frameworks/libfqapi_core.a \
             > artifacts/rust-ios-simulator-symbols.log
           for symbol in fq_desktop_media_open fq_desktop_media_close fq_desktop_media_free; do
             if ! grep -Eq "[[:space:]]_?${symbol}$" artifacts/rust-ios-simulator-symbols.log; then
