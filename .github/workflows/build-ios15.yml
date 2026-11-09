@@ -145,7 +145,7 @@ jobs:
             rust/target/aarch64-apple-ios-sim/release/libfqapi_core.a \
             rust/target/x86_64-apple-ios/release/libfqapi_core.a \
             -output ios/Frameworks/libfqapi_core.a
-          xcrun lipo -verify_arch arm64 x86_64 ios/Frameworks/libfqapi_core.a
+          xcrun lipo ios/Frameworks/libfqapi_core.a -verify_arch arm64 x86_64
           xcrun lipo -info ios/Frameworks/libfqapi_core.a \
             2>&1 | tee artifacts/rust-ios-simulator-architecture.log
           # Rust archives may contain LLVM bitcode newer than Apple's nm can read.
